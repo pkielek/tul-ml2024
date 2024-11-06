@@ -3,6 +3,8 @@ import glob
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+from helpers import load_user_feature_vector_from_file
+
 def correlation_filter(x, y):
     correlations = np.array([np.corrcoef(x[:, i], y)[0, 1] for i in range(x.shape[1])])
     selected_indices = np.where(abs(correlations) > 0.1)[0]
