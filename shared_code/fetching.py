@@ -1,4 +1,5 @@
 from json import dumps
+from pathlib import Path
 from requests import get
 from csv import reader
 from os import getenv
@@ -8,7 +9,7 @@ from helpers import save_movie_json
 
 load_dotenv()
 
-MOVIE_FILE = 'movie.csv'
+MOVIE_FILE = 'task_data/movie.csv'
 
 details_url = lambda id : f"https://api.themoviedb.org/3/movie/{id}"
 keywords_url = lambda id : details_url(id) + "/keywords"
@@ -45,5 +46,6 @@ def fetch_data_for_movies_from_file(filename):
 
 if __name__ == '__main__':
     movie_data = fetch_data_for_movies_from_file(MOVIE_FILE)
-    save_movie_json(movie_data, 'movies_data.json')
+    Path("movie_data").mkdir(exist_ok=True)
+    save_movie_json(movie_data, 'movie_data/movies_data.json')
 

@@ -21,12 +21,12 @@ def purge_nonrelevant_feature_values(movies_data, key, min_no_of_occurences = 5,
     for movie in movies_data:
         values = str(movie[key]).split(',')
         movie[key] = ",".join(v for v in str(movie[key]).split(',') if count_dict[v] >= min_no_of_occurences and count_dict[v] <= max_no_of_occurences)
-    with open(f'purged_{key}.txt','w') as key_f:
+    with open(f'feature_lists/purged_{key}.txt','w') as key_f:
         key_f.write(",".join([v for v in count_dict if count_dict[v] >= min_no_of_occurences and count_dict[v] <= max_no_of_occurences]))
     return movies_data
 
 def create_list_of_unique_values_for_key(movies_data,key):
-    with open(f'purged_{key}.txt','w') as key_f:
+    with open(f'feature_lists/purged_{key}.txt','w') as key_f:
         key_f.write(",".join(list({m[key] for m in movies_data})))
 
 def create_movie_feature_vectors(movies_data):
@@ -37,7 +37,7 @@ def create_movie_feature_vectors(movies_data):
         for feature in FEATURE_KEYWORDS:
             if feature in PURGEABLE_KEYWORDS or feature in BOOL_LIST_KEYWORDS:
                 movie_list_feature_list = str(movie[feature]).split(',') if feature in PURGEABLE_KEYWORDS else [str(movie[feature])]
-                with open(f'purged_{feature}.txt') as feature_f:
+                with open(f'feature_lists/purged_{feature}.txt') as feature_f:
                     list_features = feature_f.read().split(',')
                     for list_feature in list_features:
                         vector.append(int(list_feature in movie_list_feature_list))
@@ -63,7 +63,7 @@ def save_feature_vectors_to_csv(filename, vector_list, feature_list):
 def generate_features_and_ratings_separate_by_user(vector_list):
     user_datasets = defaultdict(lambda: [])
     Path("separated_feature_vectors").mkdir(exist_ok=True)
-    with open("train.csv") as task_f:
+    with open("task_data/train.csv") as task_f:
         read = reader(task_f,delimiter=';')
         for rate in read:
             user_datasets[int(rate[1])].append(np.append(vector_list[int(rate[2])-1],[int(rate[3]),int(rate[2])]))
@@ -78,13 +78,15 @@ def normalize_dataset(vector_list):
 
 if __name__ == '__main__':
     with open('movies_data.json') as movies_f:
+        Path("feature_lists").mkdir(exist_ok=True)
+        Path("movie_data").mkdir(exist_ok=True)
         movies_data = load(movies_f)
         for keyword in PURGEABLE_KEYWORDS:
             movies_data = purge_nonrelevant_feature_values(movies_data, keyword)
         for keyword in BOOL_LIST_KEYWORDS:
             create_list_of_unique_values_for_key(movies_data, keyword)
-        save_movie_json(movies_data,'purged_movies_data.json')
+        save_movie_json(movies_data,'movie_data/purged_movies_data.json')
         vector_list, feature_list =create_movie_feature_vectors(movies_data)
-        save_feature_vectors_to_csv('unnormalized_movie_feature_vector.csv', vector_list, feature_list)
-        save_feature_vectors_to_csv('normalized_movie_feature_vector.csv', normalize_dataset(vector_list), feature_list)
+        save_feature_vectors_to_csv('movie_data/unnormalized_movie_feature_vector.csv', vector_list, feature_list)
+        save_feature_vectors_to_csv('movie_data/normalized_movie_feature_vector.csv', normalize_dataset(vector_list), feature_list)
         generate_features_and_ratings_separate_by_user(normalize_dataset(vector_list))
