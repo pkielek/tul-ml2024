@@ -1,21 +1,29 @@
-import random
 import numpy as np
+from numpy import genfromtxt
+from sklearn.model_selection import train_test_split        
 
+def get_user_list():
+    train_data = genfromtxt('task_data/train.csv', delimiter=';', dtype=int)
+    temp = np.unique(np.transpose(train_data)[1])
+    return temp
 
-# def fake_data(num_obj, num_feat):
-#     if num_obj == 1:
-#         obj =  np.empty(num_feat)
-#         for i in range(num_feat):
-#             obj[i] = random.uniform(0, 1)
-#         return obj, random.randint(0,5)
-#     features = np.empty((num_obj,num_feat))
-#     classes = np.empty(num_obj)
-#     for i in range(num_obj):
-#         for j in range(num_feat):
-#             features[i][j] = random.uniform(0, 1)
-#         classes[i] = random.randint(0,5)
-#     return features, classes
-        
+def get_scores_per_user(user_id):
+    ret = np.empty((0,4), dtype=int)
+    train_data = genfromtxt('task_data/train.csv', delimiter=';', dtype=int)
+    for row in train_data:
+        if row[1] == user_id:
+            ret = np.append(ret, [row], axis=0)
+    return ret
+
+def get_movies_features(movie_ids):
+    movie_data = genfromtxt('movie_data/normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
+    ret = np.empty((0,len(movie_data[0])), dtype=float)
+    # print(movie_data)
+    for i, row in enumerate(movie_data):
+        if i == 0: continue
+        if i in movie_ids:
+            ret = np.append(ret, [row], axis=0)
+    return ret
 
 def manhattan_distance(trained, to_predict):
     if (len(trained) != len(to_predict)):
@@ -50,13 +58,43 @@ def kNN_predict_all(k, train_dict, to_predict, known_classes, distance):
     for elem, known_class in zip(to_predict, known_classes):
         pred = kNN_predict(k, train_dict, elem, distance)
         if known_class == pred: predicted += 1
-    accuracy = predicted / len(to_predict)
+    return predicted / len(to_predict)
+    
+k_list = range(5, 15)
+test_sizes = [0.1, 0.2, 0.25, 0.3, 0.33, 0.4]
+distance_methods = [manhattan_distance]
+
+def main():
+    users = get_user_list()
+    print(users)
+    for user_id in users:
+        scores = get_scores_per_user(user_id)
+        movie_features = get_movies_features(np.transpose(scores)[2])
+        # tutaj można dodać wybór cech
+        known_classes = np.transpose(scores)[3]
+        for test_size in test_sizes:
+            print(f'test_size = {test_size}')
+            X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=0.20, random_state=42)
+            model = kNN_train(X_train, y_train)
+            for method in distance_methods:
+                for k in k_list:
+                    accuracy = kNN_predict_all(k, model, X_test, y_test, method)
+                    print(f'distance = {method.__name__}, k = {k}, accuracy = {accuracy}')
+
+def single_user_test():
+    users = get_user_list()
+    scores = get_scores_per_user(users[4])
+    movie_features = get_movies_features(np.transpose(scores)[2])
+    # tutaj można dodać wybór cech
+    known_classes = np.transpose(scores)[3]
+
+    X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=0.20, random_state=42)
+
+    model = kNN_train(X_train, y_train)
+    accuracy = kNN_predict_all(5, model, X_test, y_test, manhattan_distance)
+    print(accuracy)
 
 
-
-# data, classes = fake_data(20, 10)
-# model = kNN_train(data, classes)
-# to_predict, known_class = fake_data(1, 10)
-# predicted = kNN_predict(5, model, to_predict, manhattan_distance)
-# print(predicted)
-# print(known_class)
+if __name__ == '__main__':
+    single_user_test()
+    # main()
