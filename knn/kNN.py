@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
-from shared_code.filters import correlation_filter, mutual_information_filter, greedy_backwards_fs
+from shared_code.filters import correlation_filter, mutual_information_filter, greedy_backwards_feature_selection, greedy_forward_feature_selection
 from shared_code.helpers import load_user_feature_vector_from_file, get_user_list, save_user_features_csv
 
 def manhattan_distance(trained, to_predict):
@@ -37,17 +37,22 @@ def kNN_train_and_predict_all(movie_features, known_classes, k, method, test_siz
     model = kNN_train(X_train, y_train)
     return kNN_predict_all(k, model, X_test, y_test, method)
 
-def single_user_test(user_id, test_size, method, k, filter, continue_greedy_backwards_fs = False):
+def single_user_test(user_id, test_size, method, k, filter, greedy_backwards_fs = False, greedy_forwards_fs = False):
     movie_features, known_classes, _ = load_user_feature_vector_from_file(user_id)
     if filter is not None:
         movie_features = filter(movie_features, known_classes)
     accuracy = kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size)
-    if continue_greedy_backwards_fs:
+    if greedy_backwards_fs and greedy_forwards_fs:
+        raise ValueError("Can't use both forward and backwards feature selection")
+    if greedy_backwards_fs or greedy_forwards_fs:
+        func = greedy_backwards_feature_selection if greedy_backwards_fs else greedy_forward_feature_selection
         print(f"user:{user_id}")
-        accuracy, selected_features = greedy_backwards_fs(accuracy, movie_features, np.arange(movie_features.shape[1]), 
-                                                          lambda movie_features: kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size))
-        save_user_features_csv("kNN/greedy_backwards_features",user_id, movie_features[:, selected_features])
-        save_user_features_csv("kNN/greedy_backwards_features_indices",user_id, [[f] for f in selected_features])
+        accuracy, selected_features = func(accuracy if greedy_backwards_fs else 0.0, 
+                                            movie_features, 
+                                            np.arange(movie_features.shape[1]) if greedy_backwards_fs else np.empty([],dtype=int), 
+                                            lambda movie_features: kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size))
+        save_user_features_csv(f'kNN/greedy_{"backwards" if greedy_backwards_fs else "forwards"}_features',user_id, movie_features[:, selected_features])
+        save_user_features_csv(f'kNN/greedy_{"backwards" if greedy_backwards_fs else "forwards"}_features_indices',user_id, [[f] for f in selected_features])
     return accuracy
 
 def main(): # for testing you can add additional for loops for test_size, method, k-value or filter method, to verify if current chosen parameters are the best
