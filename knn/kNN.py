@@ -1,8 +1,7 @@
-from matplotlib import pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
-from shared_code.filters import correlation_filter
-from shared_code.helpers import load_user_feature_vector_from_file, get_user_list
+from shared_code.filters import correlation_filter, mutual_information_filter, greedy_backwards_fs
+from shared_code.helpers import load_user_feature_vector_from_file, get_user_list, save_user_features_csv
 
 def manhattan_distance(trained, to_predict):
     if (len(trained) != len(to_predict)):
@@ -32,32 +31,32 @@ def kNN_predict_all(k, train_dict, to_predict, known_classes, distance):
         pred = kNN_predict(k, train_dict, elem, distance)
         if known_class == pred: predicted += 1
     return predicted / len(to_predict)
-    
-k_list = range(5, 15)
-test_sizes = [0.1, 0.2, 0.25, 0.3, 0.33, 0.4]
-distance_methods = [manhattan_distance]
 
-def main():
-    users = get_user_list()
-    accuracy_lists = {k:list() for k in k_list}
-    for user_id in users:
-        for method in distance_methods:
-            for k in k_list:
-                accuracy = single_user_test(user_id, 0.2, method, k, correlation_filter)
-                accuracy_lists[k].append(accuracy)
-    for k in k_list:
-        print(f"Total accuracy for k-{k} = {np.average(accuracy_lists[k])}")
-        plt.hist(sorted(accuracy_lists[k]), density=True, stacked=True,bins = 10)
-        plt.show()
-        plt.close()
-
-def single_user_test(user_id, test_size, method, k, filter):
-    movie_features, known_classes, _ = load_user_feature_vector_from_file(user_id)
-    if filter is not None:
-        movie_features = filter(movie_features, known_classes)
+def kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size):
     X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=test_size, random_state=42)
     model = kNN_train(X_train, y_train)
     return kNN_predict_all(k, model, X_test, y_test, method)
+
+def single_user_test(user_id, test_size, method, k, filter, continue_greedy_backwards_fs = False):
+    movie_features, known_classes, _ = load_user_feature_vector_from_file(user_id)
+    if filter is not None:
+        movie_features = filter(movie_features, known_classes)
+    accuracy = kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size)
+    if continue_greedy_backwards_fs:
+        print(f"user:{user_id}")
+        accuracy, selected_features = greedy_backwards_fs(accuracy, movie_features, np.arange(movie_features.shape[1]), 
+                                                          lambda movie_features: kNN_train_and_predict_all(movie_features, known_classes, k, method, test_size))
+        save_user_features_csv("kNN/greedy_backwards_features",user_id, movie_features[:, selected_features])
+        save_user_features_csv("kNN/greedy_backwards_features_indices",user_id, [[f] for f in selected_features])
+    return accuracy
+
+def main(): # for testing you can add additional for loops for test_size, method, k-value or filter method, to verify if current chosen parameters are the best
+    users = get_user_list()
+    accuracy_list = []
+    for user_id in users:
+        accuracy = single_user_test(user_id, 0.25, manhattan_distance, 8, correlation_filter, True)
+        accuracy_list.append(accuracy)
+    print(f"Total accuracy = {np.average(accuracy_list)}")
 
 
 if __name__ == '__main__':

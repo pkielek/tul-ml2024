@@ -1,18 +1,26 @@
-import os
-import glob
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import mutual_info_regression
 
-from shared_code.helpers import load_user_feature_vector_from_file
-
-def correlation_filter(x, y, corr_threshold = 0.15):
+def correlation_filter(x, y, corr_threshold = 0.1):
     correlations = np.array([np.corrcoef(x[:, i], y)[0, 1] for i in range(x.shape[1])])
     selected_indices = np.where(abs(correlations) > corr_threshold)[0]
     return x[:, selected_indices]
 
-if __name__ == '__main__':
-    for file in glob.glob(os.path.join('separated_feature_vectors','*.csv')):
-        x, y, movie_ids = load_user_feature_vector_from_file(file)
-        correlation_filter(x,y)
-        # x_train, x_test, y_train, y_test = train_test_split(x,y, test_size = 0.2)
-        break
+def mutual_information_filter(x, y, mi_threshold=0.05):
+    mi_scores = mutual_info_regression(x, y)
+    selected_indices = np.where(mi_scores > mi_threshold)[0]
+    return x[:, selected_indices]
+
+def greedy_backwards_fs(current_accuracy, movie_features, selected_features_indices, train_and_predict):
+    print(len(selected_features_indices))
+    best_accuracy = current_accuracy
+    best_indices = selected_features_indices
+    for i, _ in enumerate(selected_features_indices):
+        new_selected_features_indices = np.delete(selected_features_indices, i)
+        new_accuracy = train_and_predict(movie_features[:, new_selected_features_indices])
+        if new_accuracy > best_accuracy:
+            best_indices = new_selected_features_indices
+            best_accuracy = new_accuracy
+    if best_accuracy > current_accuracy:
+        return greedy_backwards_fs(best_accuracy, movie_features, best_indices, train_and_predict)
+    return best_accuracy, best_indices
