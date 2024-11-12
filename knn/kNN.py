@@ -1,29 +1,8 @@
+from matplotlib import pyplot as plt
 import numpy as np
-from numpy import genfromtxt
-from sklearn.model_selection import train_test_split        
-
-def get_user_list():
-    train_data = genfromtxt('task_data/train.csv', delimiter=';', dtype=int)
-    temp = np.unique(np.transpose(train_data)[1])
-    return temp
-
-def get_scores_per_user(user_id):
-    ret = np.empty((0,4), dtype=int)
-    train_data = genfromtxt('task_data/train.csv', delimiter=';', dtype=int)
-    for row in train_data:
-        if row[1] == user_id:
-            ret = np.append(ret, [row], axis=0)
-    return ret
-
-def get_movies_features(movie_ids):
-    movie_data = genfromtxt('movie_data/normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
-    ret = np.empty((0,len(movie_data[0])), dtype=float)
-    # print(movie_data)
-    for i, row in enumerate(movie_data):
-        if i == 0: continue
-        if i in movie_ids:
-            ret = np.append(ret, [row], axis=0)
-    return ret
+from sklearn.model_selection import train_test_split
+from shared_code.filters import correlation_filter
+from shared_code.helpers import load_user_feature_vector_from_file, get_user_list
 
 def manhattan_distance(trained, to_predict):
     if (len(trained) != len(to_predict)):
@@ -36,17 +15,11 @@ def manhattan_distance(trained, to_predict):
 def kNN_train(train_set, classes):
     if (len(train_set) != len(classes)):
         return None
-    ret = dict()
-    for train, actual_class in zip(train_set, classes):
-        ret[train.tobytes()] = actual_class
-    return ret
+    return [(train, actual_class) for train, actual_class in zip(train_set,classes)]
 
 def kNN_predict(k, train_dict, to_predict, distance):
-    distances = dict()
     class_pred = dict.fromkeys([0,1,2,3,4,5], 0)
-    for key, val in train_dict.items():
-        obj = np.frombuffer(key, float)
-        distances[(key, val)] = distance(obj, to_predict)
+    distances = {(i, actual_class): distance(train, to_predict) for i, (train, actual_class) in enumerate(train_dict)}
     k_closest = sorted(distances, key=distances.get, reverse=False)[:k]
     for tupple in k_closest:
         class_pred[int(tupple[1])] += 1
@@ -66,35 +39,26 @@ distance_methods = [manhattan_distance]
 
 def main():
     users = get_user_list()
-    print(users)
+    accuracy_lists = {k:list() for k in k_list}
     for user_id in users:
-        scores = get_scores_per_user(user_id)
-        movie_features = get_movies_features(np.transpose(scores)[2])
-        # tutaj można dodać wybór cech
-        known_classes = np.transpose(scores)[3]
-        for test_size in test_sizes:
-            print(f'test_size = {test_size}')
-            X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=0.20, random_state=42)
-            model = kNN_train(X_train, y_train)
-            for method in distance_methods:
-                for k in k_list:
-                    accuracy = kNN_predict_all(k, model, X_test, y_test, method)
-                    print(f'distance = {method.__name__}, k = {k}, accuracy = {accuracy}')
+        for method in distance_methods:
+            for k in k_list:
+                accuracy = single_user_test(user_id, 0.2, method, k, correlation_filter)
+                accuracy_lists[k].append(accuracy)
+    for k in k_list:
+        print(f"Total accuracy for k-{k} = {np.average(accuracy_lists[k])}")
+        plt.hist(sorted(accuracy_lists[k]), density=True, stacked=True,bins = 10)
+        plt.show()
+        plt.close()
 
-def single_user_test():
-    users = get_user_list()
-    scores = get_scores_per_user(users[4])
-    movie_features = get_movies_features(np.transpose(scores)[2])
-    # tutaj można dodać wybór cech
-    known_classes = np.transpose(scores)[3]
-
-    X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=0.20, random_state=42)
-
+def single_user_test(user_id, test_size, method, k, filter):
+    movie_features, known_classes, _ = load_user_feature_vector_from_file(user_id)
+    if filter is not None:
+        movie_features = filter(movie_features, known_classes)
+    X_train, X_test, y_train, y_test = train_test_split(movie_features, known_classes, test_size=test_size, random_state=42)
     model = kNN_train(X_train, y_train)
-    accuracy = kNN_predict_all(5, model, X_test, y_test, manhattan_distance)
-    print(accuracy)
+    return kNN_predict_all(k, model, X_test, y_test, method)
 
 
 if __name__ == '__main__':
-    single_user_test()
-    # main()
+    main()

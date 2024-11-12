@@ -72,11 +72,23 @@ def generate_features_and_ratings_separate_by_user(vector_list):
             write = writer(csv_f)
             write.writerows(user_datasets[user_id])
 
+def generate_separate_ratings_by_user():
+    user_datasets = defaultdict(lambda: [])
+    Path("separated_ratings").mkdir(exist_ok=True)
+    with open("task_data/train.csv") as task_f:
+        read = reader(task_f,delimiter=';')
+        for rate in read:
+            user_datasets[int(rate[1])].append(rate)
+    for user_id in user_datasets:
+        with open(f"separated_ratings/{user_id}.csv",'w',newline='') as csv_f:
+            write = writer(csv_f,delimiter=';')
+            write.writerows(user_datasets[user_id])
 
 def normalize_dataset(vector_list):
     return StandardScaler().fit_transform(vector_list)
 
 if __name__ == '__main__':
+    generate_separate_ratings_by_user()
     with open('movies_data.json') as movies_f:
         Path("feature_lists").mkdir(exist_ok=True)
         Path("movie_data").mkdir(exist_ok=True)

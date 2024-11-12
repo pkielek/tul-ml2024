@@ -9,14 +9,9 @@ def save_movie_json(movie_data, filename):
     with open(filename,'w') as out:
         out.write(movies_json)
 
-def load_user_feature_vector_from_file(file_path):
-    x = []
-    y = []
-    movie_ids = []
-    with open(file_path) as f:
-        read = reader(f)
-        for rating in read:
-            movie_ids.append(int(float(rating[-1])))
-            y.append(int(float(rating[-2])))
-            x.append(rating[:-2])
-    return np.array(x,dtype='float64'), np.array(y), movie_ids
+def load_user_feature_vector_from_file(user_id):
+    data = np.genfromtxt(f'separated_feature_vectors/{user_id}.csv', delimiter=',', dtype=float)
+    return data[:, :-2], data[:, -2], data[:, -1] # x, y and movie_ids
+
+def get_user_list():
+    return np.unique(np.genfromtxt('task_data/train.csv', delimiter=';', dtype=int)[:,1])
