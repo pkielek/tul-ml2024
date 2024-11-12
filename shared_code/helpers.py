@@ -1,4 +1,4 @@
-from csv import reader, writer
+from csv import writer
 from json import dumps
 from pathlib import Path
 
@@ -16,7 +16,6 @@ def save_user_features_csv(dirname, user_id, data):
         write = writer(csv_f)
         write.writerows(data)
 
-
 def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors'):
     data = np.genfromtxt(f'{directory}/{user_id}.csv', delimiter=',', dtype=float)
     if directory != 'separated_feature_vectors':
@@ -25,3 +24,10 @@ def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_v
 
 def get_user_list():
     return np.unique(np.genfromtxt('task_data/train.csv', delimiter=';', dtype=int)[:,1])
+
+def get_task_data():
+    return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
+
+def load_movie_feature_vectors():
+    data = np.genfromtxt(f'movie_data/normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
+    return data[1:]
