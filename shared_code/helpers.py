@@ -18,7 +18,7 @@ def save_user_features_csv(dirname, user_id, data):
 
 def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors'):
     data = np.genfromtxt(f'{directory}/{user_id}.csv', delimiter=',', dtype=float)
-    if directory != 'separated_feature_vectors':
+    if 'vectors' not in directory: # artbitraly difference for directories where labels and movie_ids are included
         return data
     return data[:, :-2], data[:, -2], data[:, -1] # x, y and movie_ids
 
@@ -28,6 +28,10 @@ def get_user_list():
 def get_task_data():
     return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
 
-def load_movie_feature_vectors():
-    data = np.genfromtxt(f'movie_data/normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
+def load_movie_feature_vectors(unnormalized = False):
+    data = np.genfromtxt(f'movie_data/{'un' if unnormalized else ''}normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
     return data[1:]
+
+def load_movie_feature_vector_names(unnormalized = False):
+    data = np.genfromtxt(f'movie_data/{'un' if unnormalized else ''}normalized_movie_feature_vector.csv', delimiter=',', dtype=str)
+    return data[0,:]

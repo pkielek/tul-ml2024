@@ -1,7 +1,7 @@
 from json import load
 from csv import writer, reader
 from collections import defaultdict
-from helpers import save_movie_json
+from shared_code.helpers import save_movie_json
 from sklearn.preprocessing import StandardScaler
 from pathlib import Path
 import numpy as np
@@ -26,7 +26,7 @@ def purge_nonrelevant_feature_values(movies_data, key, min_no_of_occurences = 5,
 
 def create_list_of_unique_values_for_key(movies_data,key):
     with open(f'feature_lists/purged_{key}.txt','w') as key_f:
-        key_f.write(",".join(list({m[key] for m in movies_data})))
+        key_f.write(",".join(sorted(list({m[key] for m in movies_data}))))
 
 def create_movie_feature_vectors(movies_data):
     vector_list = []
@@ -59,15 +59,16 @@ def save_feature_vectors_to_csv(filename, vector_list, feature_list):
         write.writerow(feature_list)
         write.writerows(vector_list)
 
-def generate_features_and_ratings_separate_by_user(vector_list):
+def generate_features_and_ratings_separate_by_user(vector_list, directory = 'separated_feature_vectors'):
     user_datasets = defaultdict(lambda: [])
-    Path("separated_feature_vectors").mkdir(exist_ok=True)
+    
+    Path(directory).mkdir(exist_ok=True)
     with open("task_data/train.csv") as task_f:
         read = reader(task_f,delimiter=';')
         for rate in read:
             user_datasets[int(rate[1])].append(np.append(vector_list[int(rate[2])-1],[int(rate[3]),int(rate[2])]))
     for user_id in user_datasets:
-        with open(f"separated_feature_vectors/{user_id}.csv",'w',newline='') as csv_f:
+        with open(f"{directory}/{user_id}.csv",'w',newline='') as csv_f:
             write = writer(csv_f)
             write.writerows(user_datasets[user_id])
 
@@ -75,7 +76,7 @@ def normalize_dataset(vector_list):
     return StandardScaler().fit_transform(vector_list)
 
 if __name__ == '__main__':
-    with open('movies_data.json') as movies_f:
+    with open('movie_data/movies_data.json') as movies_f:
         Path("feature_lists").mkdir(exist_ok=True)
         Path("movie_data").mkdir(exist_ok=True)
         movies_data = load(movies_f)
@@ -88,3 +89,4 @@ if __name__ == '__main__':
         save_feature_vectors_to_csv('movie_data/unnormalized_movie_feature_vector.csv', vector_list, feature_list)
         save_feature_vectors_to_csv('movie_data/normalized_movie_feature_vector.csv', normalize_dataset(vector_list), feature_list)
         generate_features_and_ratings_separate_by_user(normalize_dataset(vector_list))
+        generate_features_and_ratings_separate_by_user(vector_list,'separated_unnormalized_feature_vectors')
