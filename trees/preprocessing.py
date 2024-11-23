@@ -6,7 +6,7 @@ def generate_feature_bins(feature_data, bins = 10):
     bin_edges = np.percentile(sorted_data, np.linspace(0, 100, bins +1))
     return bin_edges
 
-def generate_subvector_for_bins_and_value(value, bins):
+def generate_subvector_for_bins_and_value(bins, value):
     return np.array([1 if (value >= bins[i] and value < bins[i+1]) or (value == bins[-1] and bins[i+1] == bins[-1]) else 0 for i in range(bins.shape[0]-1)])
 
 def generate_name_subvector(bins,name):

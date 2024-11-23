@@ -29,9 +29,9 @@ def get_task_data():
     return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
 
 def load_movie_feature_vectors(unnormalized = False):
-    data = np.genfromtxt(f'movie_data/{'un' if unnormalized else ''}normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
+    data = np.genfromtxt(f'movie_data/{"un" if unnormalized else ""}normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
     return data[1:]
 
 def load_movie_feature_vector_names(unnormalized = False):
-    data = np.genfromtxt(f'movie_data/{'un' if unnormalized else ''}normalized_movie_feature_vector.csv', delimiter=',', dtype=str)
+    data = np.genfromtxt(f'movie_data/{"un" if unnormalized else ""}normalized_movie_feature_vector.csv', delimiter=',', dtype=str)
     return data[0,:]
