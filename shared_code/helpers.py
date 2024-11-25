@@ -16,9 +16,9 @@ def save_user_features_csv(dirname, user_id, data):
         write = writer(csv_f)
         write.writerows(data)
 
-def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors'):
+def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors', load_all = False):
     data = np.genfromtxt(f'{directory}/{user_id}.csv', delimiter=',', dtype=float)
-    if 'vectors' not in directory: # artbitraly difference for directories where labels and movie_ids are included
+    if 'vectors' not in directory or load_all: # artbitraly difference for directories where labels and movie_ids are included
         return data
     return data[:, :-2], data[:, -2], data[:, -1] # x, y and movie_ids
 

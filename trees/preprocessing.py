@@ -19,7 +19,9 @@ def add_binned_features_to_vector(feature_vector, bin_edges, subvector_func):
         subvector_func(bin_edges[12], feature_vector[12]),
         subvector_func(bin_edges[13], feature_vector[13]),
         subvector_func(bin_edges[14], feature_vector[14]),
-        feature_vector[15:]
+        feature_vector[15:38],
+        np.array([feature_vector[39]]) if feature_vector[39] == 'spoken_languages_count' else np.array([1 if feature_vector[39] > 1 else 0]),
+        feature_vector[40:]
     ))
 
 if __name__ == '__main__':

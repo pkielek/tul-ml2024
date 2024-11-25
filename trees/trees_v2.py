@@ -5,7 +5,17 @@ from sklearn.model_selection import train_test_split
 from copy import deepcopy
 from trees.evaluation import *
 
-from shared_code.helpers import get_task_data
+def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors', load_all = False):
+    data = np.genfromtxt(f'{directory}/{user_id}.csv', delimiter=',', dtype=float)
+    if 'vectors' not in directory or load_all: # artbitraly difference for directories where labels and movie_ids are included
+        return data
+    return data[:, :-2], data[:, -2], data[:, -1] # x, y and movie_ids
+
+def get_user_list():
+    return np.unique(np.genfromtxt('task_data/train.csv', delimiter=';', dtype=int)[:,1])
+
+def get_task_data():
+    return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
 
 class Tree:
 
@@ -19,20 +29,13 @@ class Tree:
     def set_left(self, left): self.left = left
     def set_right(self, right): self.right = right
     
+    def will_data_not_split(self, data):
+        return len(data) == 0 or np.all(data[:, self.index] == data[0,self.index])
+    
     # test elements against condition and split according to result
     def split_data(self, data):
-
-        true_list = []
-        false_list = []
-
-        for entry in data:
-
-            if entry[self.index]:
-                true_list.append(entry)
-            else:
-                false_list.append(entry)
-
-        return true_list, false_list
+        return data[data[:, self.index] == 1], data[data[:, self.index] != 1]
+    
     
     def classify(self, entry):
         if type(self.condition) == int:
@@ -45,7 +48,7 @@ class Tree:
         return self.right.classify(entry)
 
 # return list of conditions imported from file, in form of lambda expressions
-def get_conditions_from_file(path):
+def get_conditions_from_file(path = "trees/binned_movie_feature_vector.csv"):
     return np.genfromtxt(path, delimiter=',', dtype=str)[0]
 
 def create_tree(data, conditions, threshold, method):
@@ -55,30 +58,21 @@ def create_tree(data, conditions, threshold, method):
         tree = Tree()
         tree.set_condition(int(majority_class))
         return tree
-
     tree = Tree()
     info_gain = []
-    used_conditions = []
-
-    for i, condition in enumerate(conditions):
-        if i in used_conditions:
-            info_gain.append(0)
-            continue
-        tree.set_condition(condition)
+    for i in range(len(conditions)):
         tree.set_index(i)
-        left, right = tree.split_data(data)
-        if len(left) == 0 or len(right) == 0:
+        if tree.will_data_not_split(data):
             info_gain.append(0)
         else:
+            left, right = tree.split_data(data)
             info_gain.append(calculate_info_gain(left, right, data, method))
     
     index = info_gain.index(max(info_gain))
     best_condition = conditions[index]
-    used_conditions.append(index)
     tree.set_condition(best_condition)
     tree.set_index(index)
     left, right = tree.split_data(data)
-
     tree.set_left(create_tree(left, conditions, threshold, method))
     tree.set_right(create_tree(right, conditions, threshold, method))
 
@@ -93,24 +87,24 @@ def classify_test(tree, data):
 
 def find_best_thresholds(method):
 
-    thresholds = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+    # thresholds = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+    thresholds = [1.0]
 
-    all_path = "trees/separated_binned_feature_vectors"
     global_acc = 0
     file_count = 0
 
     save_thresholds = []
 
-    for filename in os.listdir(all_path):
+    user_list = get_user_list()
+    conditions = get_conditions_from_file()
+    
+    for user_id in user_list:
+        user_movies = load_user_feature_vector_from_file(user_id, 'trees/separated_binned_feature_vectors', load_all = True)
 
-        path = os.path.join(all_path, filename)
-        conditions = get_conditions_from_file("trees/binned_movie_feature_vector.csv")
-        user_movies = np.genfromtxt(path, dtype=int, delimiter=",")
-        train, test = train_test_split(user_movies, test_size=0.1, random_state=42)
+        train, test = train_test_split(user_movies, test_size=0.9, random_state=42)
 
         best_acc = 0
         best_threshold = 0
-        
         for threshold in thresholds:
             tree = create_tree(train, conditions, threshold, method)
             acc = classify_test(tree, test)
@@ -118,12 +112,12 @@ def find_best_thresholds(method):
                 best_acc = acc
                 best_threshold = threshold
         
-        save_thresholds.append([filename[:-4], str(best_threshold)])
+        save_thresholds.append([str(user_id), str(best_threshold)])
         global_acc += best_acc
         file_count += 1
-        print(filename + " = " + str(best_acc) + "; threshold = " + str(best_threshold))
+        print(str(user_id) + " = " + str(best_acc) + "; threshold = " + str(best_threshold))
     
-    print("Global accuracy = " + str(global_acc / file_count))
+    print("Global accuracy = " + str(global_acc / len(user_list)))
     np.savetxt(f"trees/best_thresholds_{method.__name__}.csv", save_thresholds, delimiter=',', fmt="%s")
 
 def train_and_predict_all(method, custom_thresholds = True):
@@ -134,23 +128,22 @@ def train_and_predict_all(method, custom_thresholds = True):
     thresh_dict = {}
 
     movie_data = np.genfromtxt("trees/binned_movie_feature_vector.csv", delimiter=',', dtype=int)
-
+    user_list = get_user_list()
+    conditions = get_conditions_from_file()
     if custom_thresholds:
         thresholds = np.genfromtxt(f"trees/best_thresholds_{method.__name__}.csv", delimiter=',', dtype=float)
         for threshold in thresholds:
             thresh_dict[threshold[0]] = threshold[1]
 
     print("Creating trees")
-    for filename in os.listdir(all_path):
+    for user_id in user_list:
 
-        print("\t" + filename)
+        print("\t" +str(user_id))
 
-        path = os.path.join(all_path, filename)
-        conditions = get_conditions_from_file("trees/binned_movie_feature_vector.csv")
-        user_movies = np.genfromtxt(path, dtype=int, delimiter=",")
-        threshold = thresh_dict[int(filename[:-4])] if custom_thresholds else 1.0
+        user_movies = load_user_feature_vector_from_file(user_id, 'trees/separated_binned_feature_vectors', load_all = True)
+        threshold = thresh_dict[int(user_id)] if custom_thresholds else 1.0
         tree = create_tree(user_movies, conditions, threshold, method)
-        tree_dict[int(filename[:-4])] = tree
+        tree_dict[int(user_id)] = tree
     
     task_data = get_task_data()
     task_results = np.empty((0, 4), dtype=int)
@@ -161,7 +154,7 @@ def train_and_predict_all(method, custom_thresholds = True):
         print("\t" + str(row[0]))
 
         user_id, movie_id = row[1], row[2]
-        predicted = tree_dict[int(user_id)] if type(tree_dict[int(user_id)]) == int else tree_dict[int(user_id)].classify(movie_data[int(movie_id)])
+        predicted = tree_dict[int(user_id)].classify(movie_data[int(movie_id)])
         task_results = np.append(task_results, [np.array([row[0], row[1], row[2], predicted], dtype=int)], axis=0)
 
     name = f'trees/task_results_{"custom_threshold" if custom_thresholds else "same_threshold"}_{method.__name__}.csv' 
@@ -170,6 +163,5 @@ def train_and_predict_all(method, custom_thresholds = True):
 
 
 if __name__ == '__main__':
-
-    # find_best_thresholds(gini_impurity)
-    train_and_predict_all(gini_impurity, False)
+    find_best_thresholds(gini_impurity)
+    # train_and_predict_all(gini_impurity, True)

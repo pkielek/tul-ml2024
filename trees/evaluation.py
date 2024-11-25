@@ -13,7 +13,7 @@ def all_classes_saturation(data):
 
 # determine if any class % in data is above threshold
 def class_over_threshold(data, threshold):
-    labels = np.unique(np.array(data).T[-2])
+    labels = np.arange(6, dtype=int)
     for label in labels:
         if one_class_saturation(data, label) >= threshold: return label
     return None
