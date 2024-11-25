@@ -1,21 +1,10 @@
 
 import numpy as np
-import os
 from sklearn.model_selection import train_test_split
-from copy import deepcopy
 from trees.evaluation import *
+from copy import deepcopy
+from shared_code.helpers import load_user_feature_vector_from_file, get_user_list, get_task_data
 
-def load_user_feature_vector_from_file(user_id, directory = 'separated_feature_vectors', load_all = False):
-    data = np.genfromtxt(f'{directory}/{user_id}.csv', delimiter=',', dtype=float)
-    if 'vectors' not in directory or load_all: # artbitraly difference for directories where labels and movie_ids are included
-        return data
-    return data[:, :-2], data[:, -2], data[:, -1] # x, y and movie_ids
-
-def get_user_list():
-    return np.unique(np.genfromtxt('task_data/train.csv', delimiter=';', dtype=int)[:,1])
-
-def get_task_data():
-    return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
 
 class Tree:
 
@@ -51,8 +40,9 @@ class Tree:
 def get_conditions_from_file(path = "trees/binned_movie_feature_vector.csv"):
     return np.genfromtxt(path, delimiter=',', dtype=str)[0]
 
-def create_tree(data, conditions, threshold, method):
-
+def create_tree(data, conditions, threshold, method, conditions_indices = None):
+    if conditions_indices is None:
+        conditions_indices = list(range(len(conditions)))
     majority_class = class_over_threshold(data, threshold)
     if majority_class is not None:
         tree = Tree()
@@ -60,21 +50,25 @@ def create_tree(data, conditions, threshold, method):
         return tree
     tree = Tree()
     info_gain = []
-    for i in range(len(conditions)):
+    for i in conditions_indices:
         tree.set_index(i)
         if tree.will_data_not_split(data):
             info_gain.append(0)
         else:
             left, right = tree.split_data(data)
             info_gain.append(calculate_info_gain(left, right, data, method))
-    
-    index = info_gain.index(max(info_gain))
+    condition_index = info_gain.index(max(info_gain))
+    index = conditions_indices.pop(condition_index)
+    if info_gain[condition_index] == 0 or len(conditions_indices) == 0: #failsafe for special cases
+        tree = Tree()
+        tree.set_condition(int(np.bincount(data[:,-2].astype(int)).argmax()))
+        return tree
     best_condition = conditions[index]
     tree.set_condition(best_condition)
     tree.set_index(index)
     left, right = tree.split_data(data)
-    tree.set_left(create_tree(left, conditions, threshold, method))
-    tree.set_right(create_tree(right, conditions, threshold, method))
+    tree.set_left(create_tree(left, conditions, threshold, method, deepcopy(conditions_indices)))
+    tree.set_right(create_tree(right, conditions, threshold, method, deepcopy(conditions_indices)))
 
     return tree
 
