@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from trees.evaluation import *
 from copy import deepcopy
 from shared_code.helpers import load_user_feature_vector_from_file, get_user_list, get_task_data
+from trees.visualize import plot_tree
 
 
 class Tree:
@@ -29,7 +30,6 @@ class Tree:
     def classify(self, entry):
         if type(self.condition) == int:
             return self.condition
-        
         result = entry[self.index]
         if result:
             return self.left.classify(entry)
@@ -114,7 +114,7 @@ def find_best_thresholds(method):
     print("Global accuracy = " + str(global_acc / len(user_list)))
     np.savetxt(f"trees/best_thresholds_{method.__name__}.csv", save_thresholds, delimiter=',', fmt="%s")
 
-def train_and_predict_all(method, custom_thresholds = True):
+def train_and_predict_all(method, custom_thresholds = True, plot_trees = False):
 
     all_path = "trees/separated_binned_feature_vectors"
 
@@ -138,6 +138,7 @@ def train_and_predict_all(method, custom_thresholds = True):
         threshold = thresh_dict[int(user_id)] if custom_thresholds else 1.0
         tree = create_tree(user_movies, conditions, threshold, method)
         tree_dict[int(user_id)] = tree
+        if plot_trees : plot_tree(tree, str(user_id))
     
     task_data = get_task_data()
     task_results = np.empty((0, 4), dtype=int)
@@ -157,5 +158,5 @@ def train_and_predict_all(method, custom_thresholds = True):
 
 
 if __name__ == '__main__':
-    find_best_thresholds(gini_impurity)
-    # train_and_predict_all(gini_impurity, True)
+    # find_best_thresholds(gini_impurity)
+    train_and_predict_all(gini_impurity, custom_thresholds=False, plot_trees=False)

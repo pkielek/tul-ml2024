@@ -4,3 +4,4 @@ venv
 /trees/separated_binned_feature_vectors
 /separated_unnormalized_feature_vectors
 /separated_feature_vectors
+/trees/visualized_trees
