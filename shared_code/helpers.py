@@ -28,6 +28,9 @@ def get_user_list():
 def get_task_data():
     return np.genfromtxt('task_data/task.csv', delimiter=';', dtype=int)
 
+def get_train_data():
+    return np.genfromtxt('task_data/train.csv', delimiter=';',dtype=int)
+
 def load_movie_feature_vectors(unnormalized = False):
     data = np.genfromtxt(f'movie_data/{"un" if unnormalized else ""}normalized_movie_feature_vector.csv', delimiter=',', dtype=float)
     return data[1:]
